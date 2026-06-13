@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vendor Management - Walkthrough</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --canvas:       #0b0d10;
+      --canvas-deep:  #08090b;
+      --canvas-soft:  #0a0c0f;
+      --rule:         rgba(255,255,255,.05);
+      --rule-strong:  rgba(255,255,255,.08);
+      --text:         #e6e8eb;
+      --text-mute:    #9a9ea3;
+      --text-faint:   #5d6166;
+      --text-strong:  #ffffff;
+      --brand:        #EC1B2E;
+      --brand-tint:   rgba(236,27,46,.09);
+      --brand-soft:   rgba(236,27,46,.05);
+      --ok:           #34d399;
+      --warn:         #fbbf24;
+      --bad:          #f87171;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--canvas);
+      color: var(--text);
+      font: 13.5px/1.5 'IBM Plex Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono {
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-feature-settings: "tnum", "zero";
+    }
+
+    code, kbd {
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-feature-settings: "tnum", "zero";
+      font-size: 0.92em;
+    }
+
+    kbd {
+      background: var(--canvas-deep);
+      border: 1px solid var(--rule-strong);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: var(--text-mute);
+    }
+
+    button {
+      font: inherit;
+      background: transparent;
+      border: 1px solid var(--rule-strong);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: var(--rule); }
+    button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+    button.primary:hover { background: #d31729; }
+
+    #root { min-height: 100vh; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2.5px 8px; border-radius: 3px;
+      font: 500 10.5px 'IBM Plex Mono', monospace;
+      letter-spacing: .04em;
+      font-feature-settings: "tnum","zero";
+    }
+    .pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; }
+    .pill.ok   { background: rgba(52,211,153,.10);  color: var(--ok);   } .pill.ok::before   { background: var(--ok); }
+    .pill.warn { background: rgba(251,191,36,.10);  color: var(--warn); } .pill.warn::before { background: var(--warn); }
+    .pill.bad  { background: rgba(248,113,113,.10); color: var(--bad);  } .pill.bad::before  { background: var(--bad); }
+    .pill.live { background: var(--brand-tint);     color: var(--brand);} .pill.live::before { background: var(--brand); box-shadow: 0 0 6px var(--brand); }
+    .kpi { background: var(--canvas); padding: 13px 16px; }
+    .kpi .kpi-label { font: 500 10.5px 'IBM Plex Mono', monospace; letter-spacing: .14em; color: var(--text-faint); text-transform: uppercase; font-feature-settings: "tnum"; }
+    .kpi .kpi-val   { font: 600 24px 'IBM Plex Mono', monospace; margin-top: 4px; color: var(--text-strong); font-feature-settings: "tnum","zero"; letter-spacing: -.005em; }
+    .kpi .kpi-delta { font: 500 11.5px 'IBM Plex Mono', monospace; margin-top: 2px; font-feature-settings: "tnum"; }
+    .kpi .kpi-delta.ok   { color: var(--ok); }
+    .kpi .kpi-delta.bad  { color: var(--bad); }
+    .kpi .kpi-delta.acc  { color: var(--brand); }
+    .kpi .kpi-delta.mute { color: var(--text-faint); }
+
+    .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border-bottom: 1px solid var(--rule); }
+    table.dt { width: 100%; border-collapse: collapse; font: 13px 'IBM Plex Sans', sans-serif; }
+    table.dt th { text-align: left; font: 500 10.5px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: var(--text-faint); text-transform: uppercase; padding: 7px 8px; border-bottom: 1px solid var(--rule-strong); font-feature-settings: "tnum"; }
+    table.dt th.r, table.dt td.r { text-align: right; }
+    table.dt td { padding: 9px 8px; border-bottom: 1px solid var(--rule); }
+    table.dt td.mono { font-family: 'IBM Plex Mono', monospace; font-feature-settings: "tnum","zero"; color: var(--text); }
+    table.dt td.mono.muted { color: var(--text-mute); font-size: 12px; }
+    table.dt tbody tr { cursor: pointer; }
+    table.dt tbody tr:hover td { background: var(--brand-soft); }
+    table.dt tbody tr.selected td { background: var(--brand-tint); }
+    .chain { display: flex; gap: 0; font: 500 10.5px 'IBM Plex Mono', monospace; font-feature-settings: "tnum"; }
+    .chain .step { flex: 1; padding: 7px 4px; text-align: center; border-right: 1px solid var(--rule); color: var(--text-faint); position: relative; }
+    .chain .step:last-child { border-right: 0; }
+    .chain .step.done { color: var(--ok); }
+    .chain .step.cur  { color: var(--brand); background: var(--brand-soft); }
+    .chain .step.rej  { color: var(--bad); background: rgba(248,113,113,.05); }
+    .chain .step .lbl { letter-spacing: .08em; }
+    .chain .step .ck  { font-size: 12px; margin-top: 3px; }
+    .chain .step .who { font-size: 9px; opacity: 0.8; margin-top: 2px; }
+    .drawer-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(8,9,11,.55);
+      backdrop-filter: blur(2px);
+      z-index: 40;
+      display: flex; justify-content: flex-end;
+    }
+    .drawer-panel {
+      width: min(520px, 92vw);
+      height: 100vh;
+      background: var(--canvas-deep);
+      border-left: 1px solid var(--rule-strong);
+      display: flex; flex-direction: column;
+      animation: drawer-in 180ms ease-out;
+    }
+    @keyframes drawer-in { from { transform: translateX(40px); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+    .drawer-head {
+      display: flex; align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .drawer-title { font: 600 13px 'IBM Plex Sans', sans-serif; letter-spacing: .04em; }
+    .drawer-mode  { margin-left: 8px; font: 500 10.5px 'IBM Plex Mono', monospace; color: var(--text-faint); letter-spacing: .12em; text-transform: uppercase; }
+    .drawer-close { margin-left: auto; }
+    .drawer-body  { flex: 1; overflow-y: auto; padding: 16px; }
+    .bb-side { width: 212px; background: var(--canvas-deep); border-right: 1px solid var(--rule); padding: 14px 0; }
+    .bb-brand { display: flex; align-items: center; gap: 10px; padding: 0 16px 16px; border-bottom: 1px solid var(--rule); }
+    .bb-brand .mark { width: 28px; height: 28px; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; border-radius: 5px; font: 700 11px 'IBM Plex Sans', sans-serif; letter-spacing: .04em; }
+    .bb-brand .name { font: 600 12.5px 'IBM Plex Sans', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--text-mute); }
+    .bb-brand .name b { color: var(--text-strong); font-weight: 600; }
+    .bb-nav { padding: 14px 8px 0; display: flex; flex-direction: column; gap: 1px; }
+    .bb-nav .item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 5px; color: var(--text-mute); font: 500 12.5px 'IBM Plex Sans', sans-serif; cursor: pointer; position: relative; }
+    .bb-nav .item:hover { background: rgba(255,255,255,.02); }
+    .bb-nav .item .k { font: 500 10.5px 'IBM Plex Mono', monospace; color: var(--text-faint); margin-left: auto; padding: 1.5px 5px; border: 1px solid var(--rule-strong); border-radius: 3px; font-feature-settings: "tnum"; }
+    .bb-nav .item.active { background: var(--brand-tint); color: var(--text-strong); }
+    .bb-nav .item.active::before { content: ""; position: absolute; left: -8px; top: 7px; bottom: 7px; width: 2px; background: var(--brand); border-radius: 0 2px 2px 0; }
+    .bb-nav .group { padding: 14px 12px 6px; font: 500 10.5px 'IBM Plex Mono', monospace; letter-spacing: .14em; color: var(--text-faint); text-transform: uppercase; }
+    .bb-top { display: flex; align-items: center; padding: 23px 18px; border-bottom: 1px solid var(--rule); gap: 14px; background: var(--canvas-soft); }
+    .bb-top .crumbs { font: 500 12.5px 'IBM Plex Sans', sans-serif; color: var(--text-mute); }
+    .bb-top .crumbs b { color: var(--text-strong); font-weight: 600; }
+    .bb-top .ticker { margin-left: auto; display: flex; gap: 20px; }
+    .bb-top .ticker .t { font: 500 11.5px 'IBM Plex Mono', monospace; color: var(--text-mute); font-feature-settings: "tnum","zero"; }
+    .bb-top .ticker .t b { color: var(--text-strong); margin-left: 6px; font-weight: 600; }
+    .bb-top .ticker .t .up { color: var(--ok); }
+    .bb-top .ticker .t .dn { color: var(--bad); }
+
+    .bb-cmd { display: flex; align-items: center; padding: 8px 14px; background: var(--canvas-deep); border-top: 1px solid var(--rule); font: 500 10.5px 'IBM Plex Mono', monospace; color: var(--text-faint); gap: 18px; letter-spacing: .06em; font-feature-settings: "tnum"; }
+    .bb-cmd b { color: var(--brand); margin-right: 6px; font-weight: 500; }
+    .bb-cmd .right { margin-left: auto; }
+    .bb-shell { display: flex; min-height: 100vh; }
+    .bb-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .bb-screen { flex: 1; min-height: 0; overflow: auto; }
+    .placeholder-screen { padding: 40px; color: var(--text-faint); font: 500 13px 'IBM Plex Sans', sans-serif; }
+    .screen-body { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1px; background: var(--rule); }
+    .bb-panel { background: var(--canvas); padding: 14px 16px; min-width: 0; }
+    .bb-panel .head { display: flex; align-items: center; margin-bottom: 10px; }
+    .bb-panel .head h4 { margin: 0; font: 600 12.5px 'IBM Plex Sans', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--text-mute); }
+    .bb-panel .head .meta { margin-left: auto; font: 500 10.5px 'IBM Plex Mono', monospace; color: var(--text-faint); font-feature-settings: "tnum"; }
+    .activity .row { font: 500 11.5px 'IBM Plex Mono', monospace; padding: 4px 0; color: var(--text-mute); font-feature-settings: "tnum"; }
+    .activity .row .time { color: var(--text-faint); margin-right: 8px; }
+    .activity .row .APR { color: var(--ok); margin-right: 8px; }
+    .activity .row .SUB { color: var(--warn); margin-right: 8px; }
+    .activity .row .REJ { color: var(--bad); margin-right: 8px; }
+    .activity .row .PAY { color: var(--brand); margin-right: 8px; }
+    .contract-notes { display: flex; flex-direction: column; gap: 10px; }
+    .contract-notes .note { background: var(--canvas); border: 1px solid var(--rule); border-radius: 6px; padding: 10px; }
+    .contract-notes .note .meta { font: 500 10.5px 'IBM Plex Mono', monospace; color: var(--text-faint); margin-bottom: 4px; letter-spacing: .04em; }
+    .contract-notes .note .meta b { color: var(--text); }
+    .contract-notes .note .body { font: 13px 'IBM Plex Sans', sans-serif; color: var(--text); }
+    .form-grid { display: grid; grid-template-columns: 160px 1fr; gap: 10px 14px; align-items: center; }
+    .form-grid label { font: 500 10.5px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: var(--text-faint); text-transform: uppercase; }
+    .form-grid input, .form-grid select, .form-grid textarea {
+      font: 13px 'IBM Plex Sans', sans-serif;
+      background: var(--canvas-deep);
+      color: var(--text);
+      border: 1px solid var(--rule-strong);
+      border-radius: 4px;
+      padding: 7px 10px;
+      width: 100%;
+    }
+    .form-grid textarea { min-height: 64px; resize: vertical; }
+    .form-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+    .tracker-actions { padding: 10px 16px; border-top: 1px solid var(--rule); display: flex; gap: 10px; align-items: center; background: var(--canvas-soft); }
+    .tracker-actions .meta { font: 500 11.5px 'IBM Plex Mono', monospace; color: var(--text-mute); margin-right: auto; }
+    .role-select { background: transparent; color: var(--text); border: 1px solid var(--rule-strong); border-radius: 3px; padding: 3px 6px; font: 500 11px 'IBM Plex Mono', monospace; }
+    .role-select.edit { color: var(--ok); }
+    .role-select.read { color: var(--warn); }
+    .role-select.no   { color: var(--bad); }
+
+    .tour-backdrop {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .tour-backdrop svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .tour-spotlight-ring {
+      position: fixed;
+      border: 1px solid var(--brand);
+      border-radius: 6px;
+      box-shadow: 0 0 0 1px rgba(236,27,46,.3), 0 0 24px rgba(236,27,46,.25);
+      pointer-events: none;
+      z-index: 101;
+      transition: top 200ms ease, left 200ms ease, width 200ms ease, height 200ms ease;
+    }
+    .tour-tooltip {
+      position: fixed;
+      width: 320px;
+      background: var(--canvas-deep);
+      border: 1px solid var(--rule-strong);
+      border-radius: 6px;
+      padding: 14px 16px;
+      z-index: 102;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      transition: top 200ms ease, left 200ms ease;
+    }
+    .tour-tooltip .label { font: 500 10.5px 'IBM Plex Mono', monospace; color: var(--text-faint); letter-spacing: .12em; text-transform: uppercase; }
+    .tour-tooltip h5 { margin: 4px 0 6px; font: 600 14px 'IBM Plex Sans', sans-serif; color: var(--text-strong); }
+    .tour-tooltip p { margin: 0 0 12px; font: 13px/1.5 'IBM Plex Sans', sans-serif; color: var(--text); }
+    .tour-tooltip .actions { display: flex; gap: 8px; align-items: center; }
+    .tour-tooltip .actions .skip { margin-right: 5px; font: 500 11.5px 'IBM Plex Mono', monospace; color: var(--text-faint); background: transparent; border: 0; cursor: pointer; }
+    .tour-tooltip .actions button { font: 500 12.5px 'IBM Plex Sans', sans-serif; }
+
+    .tour-chapter-strip {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 0;
+      background: var(--canvas-deep);
+      border-bottom: 1px solid var(--rule);
+      z-index: 102;
+      padding: 8px 16px;
+    }
+    .tour-chapter-strip .ch {
+      font: 500 11px 'IBM Plex Mono', monospace;
+      color: var(--text-faint);
+      padding: 4px 10px;
+      letter-spacing: .04em;
+      cursor: pointer;
+      border-right: 1px solid var(--rule);
+    }
+    .tour-chapter-strip .ch:last-child { border-right: 0; }
+    .tour-chapter-strip .ch.active { color: var(--brand); }
+
+    .tour-center-card {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 420px;
+      background: var(--canvas-deep);
+      border: 1px solid var(--rule-strong);
+      border-radius: 8px;
+      padding: 24px 28px;
+      z-index: 102;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    // ============ IMPORTS ============
+    import { createElement as h, useReducer, useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/react@19';
+    import { createRoot } from 'https://esm.sh/react-dom@19/client';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ============ MOCK DATA ============
+
+    const APPROVERS = {
+      ITFA: 'J. Dela Cruz', ITFUH: 'M. Reyes', BMH: 'R. Aquino', GH: 'A. Mendoza',
+      SH: 'C. Soriano', BPROD: 'L. Bautista', CFO: 'P. Villanueva', PRESIDENT: 'T. Concepcion',
+    };
+    const STAGE_ORDER = ['ITFA','ITFUH','BMH','GH','SH','BPROD','CFO','PRESIDENT'];
+
+    const VENDORS = [
+      { id:'VID000130', name:'Mabuhay Software Inc.',     category:'Software License',  status:'approved',     contact:{person:'A. Tan',     email:'atan@mabuhaysoft.example',     phone:'+63 917 555 0142'}, bankAccount:'****-****-4821', tin:'004-***-***-000', ytdSpend:3875000,  approver:'M. Reyes',    createdAt:'2026-04-12', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','SEC Registration'] },
+      { id:'VID000131', name:'Bayanihan Logistics Corp.', category:'Courier / Freight', status:'approved',     contact:{person:'R. Cruz',    email:'rcruz@bayanihanlog.example',    phone:'+63 917 555 0143'}, bankAccount:'****-****-1102', tin:'004-***-***-001', ytdSpend:482300,   approver:'R. Aquino',   createdAt:'2026-04-19', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.'] },
+      { id:'VID000132', name:'Sampaguita Audit & Co.',    category:'Audit / Advisory',  status:'approved',     contact:{person:'P. Santos',  email:'psantos@sampaguitaaudit.example',phone:'+63 917 555 0144'}, bankAccount:'****-****-7710', tin:'004-***-***-002', ytdSpend:2100000,  approver:'A. Mendoza',  createdAt:'2026-04-22', requirements:['SEC Registration','BIR 2303','Bank Cert.','PRC License'] },
+      { id:'VID000133', name:'Tahanan Hardware Supply',   category:'Hardware',          status:'approved',     contact:{person:'M. Lim',     email:'mlim@tahananhw.example',         phone:'+63 917 555 0145'}, bankAccount:'****-****-3344', tin:'004-***-***-003', ytdSpend:980650,   approver:'M. Reyes',    createdAt:'2026-05-01', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.'] },
+      { id:'VID000134', name:'Maharlika Telco Networks',  category:'Telco / Network',   status:'approved',     contact:{person:'J. Reyes',   email:'jreyes@maharlikatel.example',   phone:'+63 917 555 0146'}, bankAccount:'****-****-8801', tin:'004-***-***-004', ytdSpend:12400000, approver:'L. Bautista', createdAt:'2026-05-04', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','NTC Permit'] },
+      { id:'VID000135', name:'Sinag Solar Solutions',     category:'Utilities',         status:'approved',     contact:{person:'C. Garcia', email:'cgarcia@sinagsolar.example',     phone:'+63 917 555 0147'}, bankAccount:'****-****-2255', tin:'004-***-***-005', ytdSpend:540000,   approver:'A. Mendoza',  createdAt:'2026-05-09', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','DOE Accreditation'] },
+      { id:'VID000136', name:'Liwayway Print House',      category:'Printing',          status:'approved',     contact:{person:'F. Aguilar',email:'faguilar@liwayway.example',      phone:'+63 917 555 0148'}, bankAccount:'****-****-9911', tin:'004-***-***-006', ytdSpend:185400,   approver:'M. Reyes',    createdAt:'2026-05-11', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.'] },
+      { id:'VID000137', name:'Diwata Cloud Services',     category:'Software License',  status:'approved',     contact:{person:'E. Bautista',email:'ebautista@diwatacloud.example',phone:'+63 917 555 0149'}, bankAccount:'****-****-5566', tin:'004-***-***-007', ytdSpend:6450000,  approver:'L. Bautista', createdAt:'2026-05-13', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','PEZA Cert.'] },
+      { id:'VID000138', name:'Adobo Office Supplies',     category:'Supplies',          status:'approved',     contact:{person:'D. Co',     email:'dco@adoboofficesupp.example',    phone:'+63 917 555 0150'}, bankAccount:'****-****-7733', tin:'004-***-***-008', ytdSpend:212300,   approver:'M. Reyes',    createdAt:'2026-05-17', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.'] },
+      { id:'VID000139', name:'Pahinungod Couriers',       category:'Courier / Freight', status:'approved',     contact:{person:'V. Mendoza',email:'vmendoza@pahinungod.example',   phone:'+63 917 555 0151'}, bankAccount:'****-****-1188', tin:'004-***-***-009', ytdSpend:336500,   approver:'R. Aquino',   createdAt:'2026-05-22', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','LTFRB Permit'] },
+      { id:'VID000140', name:'Halo-halo Data Inc.',       category:'Software License',  status:'for_approval', contact:{person:'B. Yu',     email:'byu@halohalodata.example',       phone:'+63 917 555 0152'}, bankAccount:'****-****-2266', tin:'004-***-***-010', ytdSpend:0,        approver:'M. Reyes',    createdAt:'2026-06-02', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.'] },
+      { id:'VID000141', name:'Kamayan Catering Co.',      category:'Services',          status:'for_approval', contact:{person:'L. Chua',   email:'lchua@kamayan.example',           phone:'+63 917 555 0153'}, bankAccount:'****-****-9944', tin:'004-***-***-011', ytdSpend:0,        approver:'A. Mendoza',  createdAt:'2026-06-04', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','DTI Cert.'] },
+      { id:'VID000142', name:'Salakot Security Group',    category:'Services',          status:'for_approval', contact:{person:'N. Ng',     email:'nng@salakotsec.example',          phone:'+63 917 555 0154'}, bankAccount:'****-****-1144', tin:'004-***-***-012', ytdSpend:0,        approver:'R. Aquino',   createdAt:'2026-06-06', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.','PNP Accreditation'] },
+      { id:'VID000143', name:'Banaue Hardware Imports',   category:'Hardware',          status:'in_review',    contact:{person:'O. Velasco',email:'ovelasco@banauehw.example',      phone:'+63 917 555 0155'}, bankAccount:'****-****-3366', tin:'004-***-***-013', ytdSpend:0,        approver:'M. Reyes',    createdAt:'2026-06-09', requirements:['Articles of Incorp.','BIR 2303','Bank Cert.'] },
+      { id:'VID000144', name:'Pinoy Creative Studio',     category:'Advertising',       status:'in_review',    contact:{person:'I. Marquez',email:'imarquez@pinoycreative.example',phone:'+63 917 555 0156'}, bankAccount:'****-****-2244', tin:'004-***-***-014', ytdSpend:0,        approver:'A. Mendoza',  createdAt:'2026-06-10', requirements:['DTI Registration','BIR 2303','Bank Cert.'] },
+      { id:'VID000145', name:'Pasalubong Box Co.',        category:'Supplies',          status:'in_review',    contact:{person:'K. Domingo',email:'kdomingo@pasalubongbox.example',phone:'+63 917 555 0157'}, bankAccount:'****-****-5577', tin:'004-***-***-015', ytdSpend:0,        approver:'M. Reyes',    createdAt:'2026-06-11', requirements:['DTI Registration','BIR 2303','Bank Cert.'] },
+      { id:'VID000146', name:'Tikbalang Transport Svc.',  category:'Courier / Freight', status:'rejected',     contact:{person:'H. Salazar',email:'hsalazar@tikbalangtsp.example', phone:'+63 917 555 0158'}, bankAccount:'****-****-8822', tin:'004-***-***-016', ytdSpend:0,        approver:'R. Aquino',   createdAt:'2026-06-01', requirements:['Articles of Incorp.','BIR 2303'] },
+      { id:'VID000147', name:'Anito Analytics Inc.',      category:'Consulting',        status:'rejected',     contact:{person:'G. Quizon', email:'gquizon@anitoanalytics.example',phone:'+63 917 555 0159'}, bankAccount:'****-****-7711', tin:'004-***-***-017', ytdSpend:0,        approver:'A. Mendoza',  createdAt:'2026-05-29', requirements:['SEC Registration','BIR 2303'] },
+    ];
+
+    const CONTRACTS = [
+      { id:'CID000080', title:'Managed Network Services - Metro Branches', vendorId:'VID000134', type:'Services',         value:12400000, start:'2025-07-01', end:'2026-06-30', status:'expiring_soon',  notes:[
+        { at:'2026-05-12T09:14', by:'A. Mendoza', body:'Renewal terms drafted, awaiting legal review.' },
+        { at:'2026-05-14T15:02', by:'M. Reyes',   body:'Approved with 4% uplift cap.' },
+        { at:'2026-06-01T11:30', by:'L. Bautista',body:'Vendor confirmed pricing. Drafting renewal RFP.' },
+      ]},
+      { id:'CID000081', title:'ERP Annual Subscription',                    vendorId:'VID000130', type:'Subscription',     value:3875000,  start:'2025-08-01', end:'2026-07-31', status:'active',         notes:[] },
+      { id:'CID000082', title:'External Audit - FY2025',                    vendorId:'VID000132', type:'Services',         value:2100000,  start:'2025-09-15', end:'2026-03-31', status:'expired',        notes:[] },
+      { id:'CID000083', title:'Office Hardware Refresh',                    vendorId:'VID000133', type:'Hardware',         value:980650,   start:'2025-10-01', end:'2026-09-30', status:'active',         notes:[] },
+      { id:'CID000084', title:'Cloud Infra (Diwata) - Prod Tier',           vendorId:'VID000137', type:'Software License', value:6450000,  start:'2026-01-01', end:'2026-12-31', status:'active',         notes:[] },
+      { id:'CID000085', title:'Branch Solar Installations - Wave 2',        vendorId:'VID000135', type:'Services',         value:540000,   start:'2026-02-15', end:'2026-08-15', status:'expiring_soon',  notes:[
+        { at:'2026-06-02T10:05', by:'L. Bautista', body:'Phase 1 completed under budget; reviewing renewal.' },
+      ]},
+      { id:'CID000086', title:'Annual Report Print Run',                    vendorId:'VID000136', type:'Services',         value:185400,   start:'2026-03-01', end:'2026-04-30', status:'expired',        notes:[] },
+      { id:'CID000087', title:'Courier Retainer - National',                vendorId:'VID000131', type:'Services',         value:482300,   start:'2025-12-01', end:'2026-11-30', status:'active',         notes:[] },
+      { id:'CID000088', title:'Security Services - HQ',                     vendorId:'VID000139', type:'Services',         value:336500,   start:'2026-04-01', end:'2027-03-31', status:'active',         notes:[] },
+      { id:'CID000089', title:'Office Supplies - Frame Agreement',          vendorId:'VID000138', type:'Subscription',     value:212300,   start:'2026-03-15', end:'2027-03-14', status:'renewal_pending',notes:[] },
+    ];
+
+    const RFPS = [
+      // Stage: ITFA (2)
+      { id:'RFP-2026-0190', title:'Quarterly ERP user license top-up',         payableTo:'Mabuhay Software Inc.', currency:'PHP', amount:560000,  amountPHP:560000,  exchangeRate:null,  expenseType:'IT Opex',  expenseDetail:{project:'ERP Operations',  businessOwner:'L. Bautista',amount:560000},  justifications:'Quarterly seat expansion for new hires.',          requester:'D. Cruz',   requestedAt:'2026-06-11', currentStage:'ITFA', stageHistory:[], soaNumber:'SOA-2026-44120', attachments:['Quotation.pdf'] },
+      { id:'RFP-2026-0191', title:'Courier retainer Q3 prepayment',            payableTo:'Bayanihan Logistics Corp.', currency:'PHP', amount:120575,  amountPHP:120575,  exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Logistics Ops',   businessOwner:'R. Aquino',  amount:120575},  justifications:'Q3 retainer locked at current rate.',              requester:'E. Lim',    requestedAt:'2026-06-12', currentStage:'ITFA', stageHistory:[], soaNumber:'SOA-2026-44121', attachments:['Retainer.pdf'] },
+      // Stage: ITFUH (2)
+      { id:'RFP-2026-0188', title:'Branch UPS hardware procurement',           payableTo:'Tahanan Hardware Supply', currency:'PHP', amount:245000,  amountPHP:245000,  exchangeRate:null,  expenseType:'IT Capex', expenseDetail:{project:'Branch Continuity',businessOwner:'L. Bautista',amount:245000},  justifications:'Replace 12 EOL UPS units across Visayas branches.', requester:'D. Cruz',   requestedAt:'2026-06-09', currentStage:'ITFUH', stageHistory:[{stage:'ITFA',approver:'J. Dela Cruz',action:'approve',at:'2026-06-10',remarks:'OK'}], soaNumber:'SOA-2026-44118', attachments:['Quotation.pdf'] },
+      { id:'RFP-2026-0187', title:'Cloud spot-instance burst - month-end',     payableTo:'Diwata Cloud Services',   currency:'PHP', amount:312000,  amountPHP:312000,  exchangeRate:null,  expenseType:'IT Opex',  expenseDetail:{project:'Core Banking',     businessOwner:'L. Bautista',amount:312000},  justifications:'Burst capacity for EOM batch processing.',          requester:'E. Lim',    requestedAt:'2026-06-08', currentStage:'ITFUH', stageHistory:[{stage:'ITFA',approver:'J. Dela Cruz',action:'approve',at:'2026-06-09',remarks:''}], soaNumber:'SOA-2026-44117', attachments:[] },
+      // Stage: BMH (1)
+      { id:'RFP-2026-0186', title:'Audit advisory fee - Q1 portion',           payableTo:'Sampaguita Audit & Co.',  currency:'PHP', amount:525000,  amountPHP:525000,  exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'FY26 Audit',      businessOwner:'A. Mendoza',  amount:525000},  justifications:'Q1 portion of annual audit advisory retainer.',     requester:'F. Soriano',requestedAt:'2026-06-07', currentStage:'BMH',  stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-06-07',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-06-08',remarks:''}
+      ], soaNumber:'SOA-2026-44116', attachments:['Retainer.pdf'] },
+      // Stage: GH (3)
+      { id:'RFP-2026-0184', title:'Annual license renewal - ERP module',       payableTo:'Mabuhay Software Inc.',   currency:'PHP', amount:4200000, amountPHP:4200000, exchangeRate:null,  expenseType:'IT Capex', expenseDetail:{project:'Core Banking Replatform',businessOwner:'L. Bautista',amount:4200000}, justifications:'Continuation of vendor support contract; required for SOX compliance.', requester:'J. Dela Cruz',requestedAt:'2026-06-05', currentStage:'GH', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-06-05',remarks:'OK'},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-06-06',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-06-09',remarks:'Reviewed against budget plan.'}
+      ], soaNumber:'SOA-2026-44102', attachments:['Quotation.pdf','BIR-2303.pdf'] },
+      { id:'RFP-2026-0183', title:'Replacement core network switches',         payableTo:'Maharlika Telco Networks',currency:'USD', amount:62000,   amountPHP:3479440, exchangeRate:56.12, expenseType:'IT Capex', expenseDetail:{project:'Branch Continuity',businessOwner:'L. Bautista',amount:3479440}, justifications:'Switches reached end-of-support; required for branch SLA.', requester:'J. Dela Cruz',requestedAt:'2026-06-04', currentStage:'GH', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-06-04',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-06-05',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-06-07',remarks:''}
+      ], soaNumber:'SOA-2026-44101', attachments:['Quotation.pdf'] },
+      { id:'RFP-2026-0182', title:'Solar installation - Wave 2 milestone',     payableTo:'Sinag Solar Solutions',  currency:'PHP', amount:270000,  amountPHP:270000,  exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Green Branches',  businessOwner:'A. Mendoza', amount:270000},   justifications:'Milestone payment per signed SOW.',                 requester:'C. Garcia', requestedAt:'2026-06-03', currentStage:'GH', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-06-03',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-06-04',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-06-06',remarks:''}
+      ], soaNumber:'SOA-2026-44100', attachments:[] },
+      // Stage: SH (1)
+      { id:'RFP-2026-0180', title:'External marketing campaign - H2',          payableTo:'Pinoy Creative Studio',  currency:'PHP', amount:1850000, amountPHP:1850000, exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Brand FY26',      businessOwner:'A. Mendoza', amount:1850000}, justifications:'H2 campaign budget per approved marketing plan.',   requester:'I. Marquez',requestedAt:'2026-06-01', currentStage:'SH',  stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-06-01',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-06-02',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-06-03',remarks:''},
+        {stage:'GH',   approver:'A. Mendoza',   action:'approve',at:'2026-06-04',remarks:''}
+      ], soaNumber:'SOA-2026-44098', attachments:[] },
+      // Stage: BPROD (1)
+      { id:'RFP-2026-0178', title:'Catering - Annual all-hands',               payableTo:'Kamayan Catering Co.',   currency:'PHP', amount:420000,  amountPHP:420000,  exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'HR Operations',   businessOwner:'L. Bautista', amount:420000},  justifications:'Annual all-hands offsite catering - 600 pax.',     requester:'P. Santos', requestedAt:'2026-05-28', currentStage:'BPROD', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-05-28',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-05-29',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-05-30',remarks:''},
+        {stage:'GH',   approver:'A. Mendoza',   action:'approve',at:'2026-05-31',remarks:''},
+        {stage:'SH',   approver:'C. Soriano',   action:'approve',at:'2026-06-01',remarks:''}
+      ], soaNumber:'SOA-2026-44094', attachments:['Quotation.pdf'] },
+      // Stage: CFO (2)
+      { id:'RFP-2026-0176', title:'Cloud infra annual prepay - Diwata',        payableTo:'Diwata Cloud Services',  currency:'PHP', amount:6450000, amountPHP:6450000, exchangeRate:null,  expenseType:'IT Opex',  expenseDetail:{project:'Cloud Migration', businessOwner:'L. Bautista', amount:6450000}, justifications:'Annual prepay at locked rate; 8% saving vs monthly.',requester:'E. Lim',    requestedAt:'2026-05-22', currentStage:'CFO', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-05-22',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-05-23',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-05-25',remarks:''},
+        {stage:'GH',   approver:'A. Mendoza',   action:'approve',at:'2026-05-26',remarks:''},
+        {stage:'SH',   approver:'C. Soriano',   action:'approve',at:'2026-05-28',remarks:''},
+        {stage:'BPROD',approver:'L. Bautista',  action:'approve',at:'2026-05-29',remarks:'Confirmed budget aligned.'}
+      ], soaNumber:'SOA-2026-44090', attachments:['Quotation.pdf'] },
+      { id:'RFP-2026-0175', title:'Audit advisory - special engagement',       payableTo:'Sampaguita Audit & Co.', currency:'PHP', amount:1575000, amountPHP:1575000, exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Regulatory',      businessOwner:'A. Mendoza', amount:1575000},  justifications:'BSP-mandated regulatory advisory engagement.',     requester:'F. Soriano',requestedAt:'2026-05-20', currentStage:'CFO', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-05-20',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-05-21',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-05-22',remarks:''},
+        {stage:'GH',   approver:'A. Mendoza',   action:'approve',at:'2026-05-24',remarks:''},
+        {stage:'SH',   approver:'C. Soriano',   action:'approve',at:'2026-05-26',remarks:''},
+        {stage:'BPROD',approver:'L. Bautista',  action:'approve',at:'2026-05-27',remarks:''}
+      ], soaNumber:'SOA-2026-44089', attachments:[] },
+      // Stage: PRESIDENT (1)
+      { id:'RFP-2026-0170', title:'Branch lease - Cebu IT Park renewal',       payableTo:'Tahanan Hardware Supply',currency:'PHP', amount:8200000, amountPHP:8200000, exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Facilities',      businessOwner:'A. Mendoza', amount:8200000},  justifications:'3-year branch lease renewal at 6% uplift.',         requester:'F. Soriano',requestedAt:'2026-05-15', currentStage:'PRESIDENT', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-05-15',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-05-16',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'approve',at:'2026-05-17',remarks:''},
+        {stage:'GH',   approver:'A. Mendoza',   action:'approve',at:'2026-05-19',remarks:''},
+        {stage:'SH',   approver:'C. Soriano',   action:'approve',at:'2026-05-21',remarks:''},
+        {stage:'BPROD',approver:'L. Bautista',  action:'approve',at:'2026-05-23',remarks:''},
+        {stage:'CFO',  approver:'P. Villanueva',action:'approve',at:'2026-05-26',remarks:''}
+      ], soaNumber:'SOA-2026-44085', attachments:['Lease.pdf'] },
+      // FOR_PAYMENT (1)
+      { id:'RFP-2026-0168', title:'Annual report printing - final invoice',    payableTo:'Liwayway Print House',  currency:'PHP', amount:185400,  amountPHP:185400,  exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Corporate Affairs',businessOwner:'A. Mendoza', amount:185400},   justifications:'Final invoice for annual report print run.',         requester:'I. Marquez',requestedAt:'2026-05-08', currentStage:'FOR_PAYMENT', stageHistory:STAGE_ORDER.map((s,i)=>({stage:s, approver:APPROVERS[s], action:'approve', at:'2026-05-' + String(8 + i).padStart(2,'0'), remarks:''})), soaNumber:'SOA-2026-44080', attachments:[] },
+      // PAID (1)
+      { id:'RFP-2026-0160', title:'Office supplies frame agreement - May draw', payableTo:'Adobo Office Supplies', currency:'PHP', amount:73250,   amountPHP:73250,   exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Facilities',      businessOwner:'A. Mendoza', amount:73250},    justifications:'May draw against supplies frame agreement.',         requester:'P. Santos', requestedAt:'2026-04-25', currentStage:'PAID', stageHistory:STAGE_ORDER.map((s,i)=>({stage:s, approver:APPROVERS[s], action:'approve', at:'2026-04-' + String(25 + i).padStart(2,'0'), remarks:''})), soaNumber:'SOA-2026-44060', attachments:[] },
+      // REJECTED (1) - rejected at BMH
+      { id:'RFP-2026-0179', title:'Premium event sponsorship',                payableTo:'Pinoy Creative Studio', currency:'PHP', amount:2200000, amountPHP:2200000, exchangeRate:null,  expenseType:'Other',    expenseDetail:{project:'Brand FY26',      businessOwner:'A. Mendoza', amount:2200000},  justifications:'Event sponsorship outside approved marketing plan.', requester:'I. Marquez',requestedAt:'2026-05-30', currentStage:'REJECTED', stageHistory:[
+        {stage:'ITFA', approver:'J. Dela Cruz',action:'approve',at:'2026-05-30',remarks:''},
+        {stage:'ITFUH',approver:'M. Reyes',     action:'approve',at:'2026-05-31',remarks:''},
+        {stage:'BMH',  approver:'R. Aquino',    action:'reject', at:'2026-06-01',remarks:'Out of approved marketing envelope; resubmit in next quarter.'}
+      ], soaNumber:'SOA-2026-44099', attachments:[] },
+    ];
+
+    const PAYMENTS = [
+      { id:'PAY-2026-0057', rfpId:'RFP-2026-0168', bankRef:'TRX-440918274', exchangeRateUsed:56.12, actualAmountPaid:185400,  paidAt:null,         taggedBy:null,           status:'pending_tag' },
+      { id:'PAY-2026-0058', rfpId:'RFP-2026-0170', bankRef:'TRX-440918275', exchangeRateUsed:56.12, actualAmountPaid:8200000, paidAt:null,         taggedBy:null,           status:'pending_tag' },
+      { id:'PAY-2026-0059', rfpId:'RFP-2026-0175', bankRef:'TRX-440918276', exchangeRateUsed:56.12, actualAmountPaid:1575000, paidAt:null,         taggedBy:null,           status:'pending_tag' },
+      { id:'PAY-2026-0060', rfpId:'RFP-2026-0176', bankRef:'TRX-440918277', exchangeRateUsed:56.12, actualAmountPaid:6450000, paidAt:null,         taggedBy:null,           status:'pending_tag' },
+      { id:'PAY-2026-0053', rfpId:'RFP-2026-0160', bankRef:'TRX-440918250', exchangeRateUsed:56.08, actualAmountPaid:73250,   paidAt:'2026-05-04', taggedBy:'P. Villanueva',status:'tagged' },
+      { id:'PAY-2026-0054', rfpId:'RFP-2026-0161', bankRef:'TRX-440918251', exchangeRateUsed:56.08, actualAmountPaid:212300,  paidAt:'2026-05-09', taggedBy:'P. Villanueva',status:'tagged' },
+      { id:'PAY-2026-0055', rfpId:'RFP-2026-0162', bankRef:'TRX-440918252', exchangeRateUsed:56.10, actualAmountPaid:980650,  paidAt:'2026-05-18', taggedBy:'P. Villanueva',status:'tagged' },
+      { id:'PAY-2026-0056', rfpId:'RFP-2026-0163', bankRef:'TRX-440918253', exchangeRateUsed:56.12, actualAmountPaid:540000,  paidAt:'2026-05-27', taggedBy:'P. Villanueva',status:'tagged' },
+    ];
+
+    const ROLES = [
+      { email:'jdelacruz@example.com',  name:'J. Dela Cruz',  roles:{ 'Vendor Onboarding':'Edit',     'Contract Management':'Read',     'RFP':'Edit',     'RFP Tracker':'Edit',     'Payment Tagging':'No Access' }, isApprover:true  },
+      { email:'mreyes@example.com',     name:'M. Reyes',      roles:{ 'Vendor Onboarding':'Edit',     'Contract Management':'Edit',     'RFP':'Read',     'RFP Tracker':'Edit',     'Payment Tagging':'No Access' }, isApprover:true  },
+      { email:'raquino@example.com',    name:'R. Aquino',     roles:{ 'Vendor Onboarding':'Read',     'Contract Management':'Read',     'RFP':'Read',     'RFP Tracker':'Edit',     'Payment Tagging':'No Access' }, isApprover:true  },
+      { email:'amendoza@example.com',   name:'A. Mendoza',    roles:{ 'Vendor Onboarding':'Read',     'Contract Management':'Read',     'RFP':'Read',     'RFP Tracker':'Edit',     'Payment Tagging':'No Access' }, isApprover:true  },
+      { email:'lbautista@example.com',  name:'L. Bautista',   roles:{ 'Vendor Onboarding':'Read',     'Contract Management':'Read',     'RFP':'Read',     'RFP Tracker':'Edit',     'Payment Tagging':'Edit'      }, isApprover:true  },
+      { email:'pvillanueva@example.com',name:'P. Villanueva', roles:{ 'Vendor Onboarding':'No Access','Contract Management':'No Access','RFP':'No Access','RFP Tracker':'Edit',     'Payment Tagging':'Edit'      }, isApprover:true  },
+      { email:'dcruz@example.com',      name:'D. Cruz',       roles:{ 'Vendor Onboarding':'Edit',     'Contract Management':'No Access','RFP':'Edit',     'RFP Tracker':'Read',     'Payment Tagging':'No Access' }, isApprover:false },
+      { email:'fsoriano@example.com',   name:'F. Soriano',    roles:{ 'Vendor Onboarding':'No Access','Contract Management':'Read',     'RFP':'Edit',     'RFP Tracker':'Read',     'Payment Tagging':'No Access' }, isApprover:false },
+    ];
+
+    // ============ STATE ============
+    const initialAppState = {
+      activeModule: 'VendorOnboarding',
+      selectedRow: null,           // { module, id } | null
+      drawer: { open:false, mode:null, rowId:null }, // mode: 'new'|'edit'|'view'|'notes'
+      trackerStage: null,          // ApprovalStage | null
+      rfpOverrides: {},            // { [rfpId]: { currentStage, stageHistory } }
+    };
+
+    function appReducer(state, action) {
+      switch (action.type) {
+        case 'SET_MODULE':
+          return { ...state, activeModule: action.module, selectedRow: null, drawer: { open:false, mode:null, rowId:null }, trackerStage: action.module === 'RfpTracker' ? state.trackerStage : null };
+        case 'SELECT_ROW':
+          return { ...state, selectedRow: { module: action.module, id: action.id } };
+        case 'OPEN_DRAWER':
+          return { ...state, drawer: { open:true, mode: action.mode, rowId: action.rowId } };
+        case 'CLOSE_DRAWER':
+          return { ...state, drawer: { open:false, mode:null, rowId:null } };
+        case 'SET_TRACKER_STAGE':
+          return { ...state, trackerStage: action.stage };
+        case 'ADVANCE_RFP': {
+          const current = state.rfpOverrides[action.rfpId] || mergeRfp(action.rfpId);
+          const nextStage = nextApprovalStage(current.currentStage);
+          const newHistory = [...current.stageHistory, { stage: current.currentStage, approver: APPROVERS[current.currentStage], action: 'approve', at: action.at, remarks: action.remarks || '' }];
+          return { ...state, rfpOverrides: { ...state.rfpOverrides, [action.rfpId]: { currentStage: nextStage, stageHistory: newHistory } } };
+        }
+        case 'REJECT_RFP': {
+          const current = state.rfpOverrides[action.rfpId] || mergeRfp(action.rfpId);
+          const newHistory = [...current.stageHistory, { stage: current.currentStage, approver: APPROVERS[current.currentStage], action: 'reject', at: action.at, remarks: action.remarks || '' }];
+          return { ...state, rfpOverrides: { ...state.rfpOverrides, [action.rfpId]: { currentStage: 'REJECTED', stageHistory: newHistory } } };
+        }
+        case 'INSERT_RFP':
+          return { ...state, rfpOverrides: { ...state.rfpOverrides, [action.rfp.id]: { currentStage: 'ITFA', stageHistory: [], _inserted: action.rfp } }, activeModule: 'RfpTracker' };
+        case 'RESET':
+          return initialAppState;
+        default:
+          return state;
+      }
+    }
+
+    function mergeRfp(rfpId) {
+      const base = RFPS.find(r => r.id === rfpId);
+      return { currentStage: base.currentStage, stageHistory: base.stageHistory };
+    }
+
+    function getRfp(rfpId, overrides) {
+      const base = RFPS.find(r => r.id === rfpId);
+      const ov = overrides[rfpId];
+      if (base && ov) return { ...base, currentStage: ov.currentStage, stageHistory: ov.stageHistory };
+      if (!base && ov && ov._inserted) return { ...ov._inserted, currentStage: ov.currentStage, stageHistory: ov.stageHistory };
+      return base;
+    }
+
+    function allRfps(overrides) {
+      const inserted = Object.entries(overrides).filter(([id]) => !RFPS.find(r => r.id === id)).map(([id, ov]) => ({ ...ov._inserted, currentStage: ov.currentStage, stageHistory: ov.stageHistory }));
+      const existing = RFPS.map(r => {
+        const ov = overrides[r.id];
+        return ov ? { ...r, currentStage: ov.currentStage, stageHistory: ov.stageHistory } : r;
+      });
+      return [...inserted, ...existing];
+    }
+
+    function nextApprovalStage(stage) {
+      const idx = STAGE_ORDER.indexOf(stage);
+      if (idx === -1) return stage;
+      if (idx === STAGE_ORDER.length - 1) return 'FOR_PAYMENT';
+      return STAGE_ORDER[idx + 1];
+    }
+
+    // ============ PRIMITIVES ============
+
+    const Pill = ({ variant = 'ok', children }) =>
+      html`<span class=${'pill ' + variant} data-test-pill="${variant}">${children}</span>`;
+
+    const KpiCard = ({ label, value, delta, deltaVariant = 'mute' }) => html`
+      <div class="kpi" data-test-kpi>
+        <div class="kpi-label">${label}</div>
+        <div class="kpi-val">${value}</div>
+        ${delta ? html`<div class=${'kpi-delta ' + deltaVariant}>${delta}</div>` : null}
+      </div>
+    `;
+
+    const DataTable = ({ columns, rows, onRowClick, selectedId }) => html`
+      <table class="dt" data-test-dt>
+        <thead>
+          <tr>
+            ${columns.map(c => html`<th key=${c.key} class=${c.align === 'right' ? 'r' : ''}>${c.label}</th>`)}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => html`
+            <tr key=${r.id} class=${selectedId === r.id ? 'selected' : ''} onClick=${() => onRowClick && onRowClick(r)}>
+              ${columns.map(c => {
+                const v = c.render ? c.render(r) : r[c.key];
+                const cls = [c.align === 'right' ? 'r' : '', c.mono ? 'mono' : '', c.muted ? 'muted' : ''].filter(Boolean).join(' ');
+                return html`<td key=${c.key} class=${cls}>${v}</td>`;
+              })}
+            </tr>
+          `)}
+        </tbody>
+      </table>
+    `;
+
+    const STAGE_LABELS = { ITFA:'ITFA', ITFUH:'ITFUH', BMH:'BMH', GH:'GH', SH:'SH', BPROD:'BPROD', CFO:'CFO', PRESIDENT:'PRES' };
+
+    const ApprovalChain = ({ rfp, onStageClick }) => {
+      const cur = rfp.currentStage;
+      const rejectedAt = cur === 'REJECTED' ? rfp.stageHistory.find(h => h.action === 'reject')?.stage : null;
+      return html`
+        <div class="chain" data-tour="approval-chain">
+          ${STAGE_ORDER.map(stage => {
+            const hist = rfp.stageHistory.find(h => h.stage === stage);
+            let cls = 'step';
+            let glyph = '-';
+            let who = '';
+            if (rejectedAt && STAGE_ORDER.indexOf(stage) > STAGE_ORDER.indexOf(rejectedAt)) {
+              cls += '';
+              glyph = '-';
+            } else if (stage === rejectedAt) {
+              cls += ' rej';
+              glyph = '✕';
+              who = hist?.approver?.split(' ').map(p => p[0]).join('') || '';
+            } else if (hist?.action === 'approve') {
+              cls += ' done';
+              glyph = '✓';
+              who = hist.approver.split(' ').map(p => p[0]).join('');
+            } else if (stage === cur) {
+              cls += ' cur';
+              glyph = '●';
+            }
+            return html`
+              <div key=${stage} class=${cls} data-tour=${'chain-stage-' + stage}
+                   onClick=${onStageClick ? () => onStageClick(stage) : null}>
+                <div class="lbl">${STAGE_LABELS[stage]}</div>
+                <div class="ck">${glyph}</div>
+                ${who ? html`<div class="who">${who}</div>` : null}
+              </div>
+            `;
+          })}
+        </div>
+      `;
+    };
+
+    const Drawer = ({ open, title, mode, onClose, children }) => {
+      const panelRef = useRef(null);
+      useEffect(() => {
+        if (!open) return;
+        const prev = document.activeElement;
+        panelRef.current?.focus();
+        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+        window.addEventListener('keydown', onKey);
+        return () => { window.removeEventListener('keydown', onKey); prev && prev.focus && prev.focus(); };
+      }, [open]);
+      if (!open) return null;
+      return html`
+        <div class="drawer-backdrop" onClick=${(e) => { if (e.target === e.currentTarget) onClose?.(); }} data-tour="contract-notes-drawer">
+          <div class="drawer-panel" tabIndex="-1" ref=${panelRef} role="dialog" aria-label=${title}>
+            <div class="drawer-head">
+              <div class="drawer-title">${title}</div>
+              ${mode ? html`<div class="drawer-mode">${mode}</div>` : null}
+              <button class="drawer-close" onClick=${onClose}>Close</button>
+            </div>
+            <div class="drawer-body">${children}</div>
+          </div>
+        </div>
+      `;
+    };
+
+    // ============ CHROME ============
+
+    const MODULES = [
+      { key:'VendorOnboarding',  label:'Vendor Onboarding',   glyph:'◧', shortcut:'F1' },
+      { key:'ContractMgmt',      label:'Contract Management', glyph:'▦', shortcut:'F2' },
+      { key:'Rfp',               label:'RFP',                 glyph:'◐', shortcut:'F3' },
+      { key:'RfpTracker',        label:'RFP Tracker',         glyph:'◉', shortcut:'F4' },
+      { key:'PaymentTagging',    label:'Payment Tagging',     glyph:'◫', shortcut:'F5' },
+    ];
+
+    const Sidebar = ({ active, onSelect }) => html`
+      <aside class="bb-side">
+        <div class="bb-brand">
+          <div class="mark">VM</div>
+          <div class="name"><b>Vendor</b> Management</div>
+        </div>
+        <div class="bb-nav">
+          <div class="group">Modules</div>
+          ${MODULES.map(m => html`
+            <div key=${m.key} class=${'item' + (active === m.key ? ' active' : '')} data-mod=${m.key}
+                 onClick=${() => onSelect(m.key)}>
+              <span>${m.glyph}</span>
+              <span>${m.label}</span>
+              <span class="k">${m.shortcut}</span>
+            </div>
+          `)}
+          <div class="group">System</div>
+          <div class=${'item' + (active === 'Admin' ? ' active' : '')} data-mod="Admin" onClick=${() => onSelect('Admin')}>
+            <span>⚙</span>
+            <span>Admin</span>
+            <span class="k">F9</span>
+          </div>
+        </div>
+      </aside>
+    `;
+
+    const MODULE_LABELS = {
+      VendorOnboarding: 'Vendor Onboarding',
+      ContractMgmt: 'Contract Management',
+      Rfp: 'RFP',
+      RfpTracker: 'RFP Tracker',
+      PaymentTagging: 'Payment Tagging',
+      Admin: 'Admin',
+    };
+
+    const Topbar = ({ activeModule, pendingCount = 17, slaDays = 2.4, fx = 56.12 }) => html`
+      <div class="bb-top">
+        <div class="crumbs">Vendor Management / <b>${MODULE_LABELS[activeModule]}</b></div>
+        <div class="ticker">
+          <div class="t">PENDING <b class="up">${pendingCount}</b></div>
+          <div class="t">SLA <b>${slaDays.toFixed(1)}d</b></div>
+          <div class="t">USD/PHP <b>${fx.toFixed(2)}</b> <span class="up">+0.04</span></div>
+        </div>
+      </div>
+    `;
+
+    const CommandBar = () => html`
+      <div class="bb-cmd">
+        <span><b>F1</b>Vendor</span>
+        <span><b>F2</b>Contract</span>
+        <span><b>F3</b>RFP</span>
+        <span><b>F4</b>Tracker</span>
+        <span><b>F5</b>Payment</span>
+        <span><b>F9</b>Admin</span>
+        <span class="right"><b>⌘K</b>Command</span>
+      </div>
+    `;
+
+    // ============ MODULES ============
+
+    const Placeholder = ({ label }) => html`<div class="placeholder-screen">${label} - pending implementation</div>`;
+    const formatPHP = (n) => '₱ ' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formatShortDate = (s) => s ? s.slice(5) : ''; // 'MM-DD' from 'YYYY-MM-DD'
+
+    const STATUS_PILL = {
+      approved:     { v:'ok',   label:'approved' },
+      for_approval: { v:'warn', label:'for approval' },
+      in_review:    { v:'live', label:'in review' },
+      rejected:     { v:'bad',  label:'rejected' },
+    };
+
+    const ACTIVITY = [
+      { time:'14:02:31', tag:'APR', body:'GH approved RFP-2026-0184' },
+      { time:'13:54:08', tag:'SUB', body:'New vendor VID000145 submitted by D. Cruz' },
+      { time:'13:41:55', tag:'REJ', body:'BMH rejected RFP-2026-0179' },
+      { time:'13:22:10', tag:'PAY', body:'Tagged CT-2026-0091 ₱ 980,000.00' },
+      { time:'12:58:44', tag:'APR', body:'ITFA approved RFP-2026-0190' },
+    ];
+
+    const VendorOnboarding = ({ state, dispatch }) => {
+      const counts = useMemo(() => ({
+        approved:     VENDORS.filter(v => v.status === 'approved').length,
+        for_approval: VENDORS.filter(v => v.status === 'for_approval').length,
+        rejected:     VENDORS.filter(v => v.status === 'rejected').length,
+        spend:        VENDORS.reduce((s,v) => s + v.ytdSpend, 0),
+      }), []);
+
+      const featuredRfp = getRfp('RFP-2026-0184', state.rfpOverrides);
+
+      const cols = [
+        { key:'id',       label:'ID',       mono:true },
+        { key:'name',     label:'Vendor' },
+        { key:'category', label:'Category' },
+        { key:'status',   label:'Status', render: (r) => {
+          const s = STATUS_PILL[r.status];
+          return html`<${Pill} variant=${s.v}>${s.label}<//>`;
+        }},
+        { key:'ytdSpend', label:'YTD Spend', align:'right', mono:true,
+          render: (r) => r.ytdSpend ? formatPHP(r.ytdSpend) : '-' },
+        { key:'createdAt',label:'Created', align:'right', mono:true,
+          render: (r) => formatShortDate(r.createdAt) },
+      ];
+
+      return html`
+        <div>
+          <div class="kpi-strip">
+            <${KpiCard} label="Approved"        value=${counts.approved}     delta="+8 wk"  deltaVariant="ok" />
+            <${KpiCard} label="For Approval"    value=${counts.for_approval} delta="+3 today" deltaVariant="bad" />
+            <${KpiCard} label="Rejected"        value=${counts.rejected}     delta="0 wk"   deltaVariant="mute" />
+            <${KpiCard} label="Total Spend YTD" value=${'₱ ' + (counts.spend / 1_000_000).toFixed(1) + 'M'} delta="tracked" deltaVariant="acc" />
+          </div>
+          <div class="screen-body">
+            <section class="bb-panel" data-tour="vendor-register">
+              <div class="head"><h4>Vendor Register</h4><div class="meta">${VENDORS.length} rows · sorted by date desc</div></div>
+              <${DataTable} columns=${cols} rows=${VENDORS} onRowClick=${(r) => {
+                dispatch({ type:'SELECT_ROW', module:'VendorOnboarding', id:r.id });
+                dispatch({ type:'OPEN_DRAWER', mode:'view', rowId:r.id });
+              }} selectedId=${state.selectedRow?.module === 'VendorOnboarding' ? state.selectedRow.id : null} />
+            </section>
+            <section class="bb-panel" style=${{ display:'flex', flexDirection:'column', gap:'14px' }}>
+              <div>
+                <div class="head"><h4>RFP Approval Chain</h4><div class="meta">${featuredRfp.id} · ${formatPHP(featuredRfp.amount)}</div></div>
+                <${ApprovalChain} rfp=${featuredRfp} />
+              </div>
+              <div class="activity">
+                <div class="head"><h4>Recent Activity</h4><div class="meta">live</div></div>
+                ${ACTIVITY.map(a => html`<div class="row" key=${a.time}><span class="time">${a.time}</span><span class=${a.tag}>${a.tag}</span>${a.body}</div>`)}
+              </div>
+            </section>
+          </div>
+
+          <${Drawer} open=${state.drawer.open} title=${state.drawer.rowId} mode=${state.drawer.mode} onClose=${() => dispatch({ type:'CLOSE_DRAWER' })}>
+            ${(() => {
+              const v = VENDORS.find(x => x.id === state.drawer.rowId);
+              if (!v) return null;
+              return html`
+                <div style=${{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', fontSize:'13px' }}>
+                  <div><div class="kpi-label">Vendor</div><div>${v.name}</div></div>
+                  <div><div class="kpi-label">Category</div><div>${v.category}</div></div>
+                  <div><div class="kpi-label">Contact</div><div>${v.contact.person}<br/><span class="mono" style=${{fontSize:'12px',color:'var(--text-mute)'}}>${v.contact.email}</span></div></div>
+                  <div><div class="kpi-label">Phone</div><div class="mono">${v.contact.phone}</div></div>
+                  <div><div class="kpi-label">Bank</div><div class="mono">${v.bankAccount}</div></div>
+                  <div><div class="kpi-label">TIN</div><div class="mono">${v.tin}</div></div>
+                  <div style=${{gridColumn:'1/-1'}}><div class="kpi-label">Requirements</div><ul style=${{margin:'4px 0',paddingLeft:'18px'}}>${v.requirements.map(r => html`<li key=${r}>${r}</li>`)}</ul></div>
+                </div>
+              `;
+            })()}
+          <//>
+        </div>
+      `;
+    };
+    const CONTRACT_STATUS_PILL = {
+      active:           { v:'ok',   label:'active' },
+      expiring_soon:    { v:'warn', label:'expiring soon' },
+      renewal_pending:  { v:'live', label:'renewal pending' },
+      expired:          { v:'bad',  label:'expired' },
+    };
+
+    const daysUntil = (iso) => Math.round((new Date(iso) - new Date('2026-06-13')) / 86400000);
+
+    const ContractMgmt = ({ state, dispatch }) => {
+      const renewals = useMemo(
+        () => CONTRACTS.filter(c => c.status === 'expiring_soon' || c.status === 'renewal_pending').slice(0, 5),
+        []
+      );
+      const cols = [
+        { key:'id',     label:'ID',     mono:true },
+        { key:'title',  label:'Contract' },
+        { key:'type',   label:'Type' },
+        { key:'status', label:'Status', render: (r) => {
+          const s = CONTRACT_STATUS_PILL[r.status];
+          return html`<${Pill} variant=${s.v}>${s.label}<//>`;
+        }},
+        { key:'value',  label:'Value',  align:'right', mono:true, render: (r) => formatPHP(r.value) },
+        { key:'end',    label:'Ends',   align:'right', mono:true, render: (r) => r.end },
+      ];
+
+      return html`
+        <div>
+          <div class="kpi-strip">
+            <${KpiCard} label="Active"          value=${CONTRACTS.filter(c => c.status === 'active').length}        delta="+1 wk"  deltaVariant="ok" />
+            <${KpiCard} label="Expiring Soon"   value=${CONTRACTS.filter(c => c.status === 'expiring_soon').length} delta=""        deltaVariant="bad" />
+            <${KpiCard} label="Renewal Pending" value=${CONTRACTS.filter(c => c.status === 'renewal_pending').length} delta=""      deltaVariant="acc" />
+            <${KpiCard} label="Total Value"     value=${formatPHP(CONTRACTS.reduce((s,c) => s + c.value, 0))} delta="tracked" deltaVariant="acc" />
+          </div>
+          <div class="screen-body">
+            <section class="bb-panel">
+              <div class="head"><h4>Contracts</h4><div class="meta">${CONTRACTS.length} rows</div></div>
+              <${DataTable} columns=${cols} rows=${CONTRACTS} onRowClick=${(r) => {
+                dispatch({ type:'SELECT_ROW', module:'ContractMgmt', id:r.id });
+                dispatch({ type:'OPEN_DRAWER', mode:'notes', rowId:r.id });
+              }} selectedId=${state.selectedRow?.module === 'ContractMgmt' ? state.selectedRow.id : null} />
+            </section>
+            <section class="bb-panel" data-tour="contract-renewals">
+              <div class="head"><h4>Expiring within 90 days</h4><div class="meta">${renewals.length}</div></div>
+              <div style=${{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                ${renewals.map(c => {
+                  const d = daysUntil(c.end);
+                  return html`
+                    <div key=${c.id} style=${{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid var(--rule)' }}>
+                      <div>
+                        <div style=${{ fontSize:'13px' }}>${c.title}</div>
+                        <div class="mono" style=${{ fontSize:'11px', color:'var(--text-faint)' }}>${c.id}</div>
+                      </div>
+                      <div style=${{ textAlign:'right' }}>
+                        <div class="mono" style=${{ color: d < 30 ? 'var(--bad)' : 'var(--warn)' }}>${d} days</div>
+                        <div class="mono" style=${{ fontSize:'10px', color:'var(--text-faint)' }}>${c.end}</div>
+                      </div>
+                    </div>
+                  `;
+                })}
+              </div>
+            </section>
+          </div>
+
+          <${Drawer} open=${state.drawer.open && state.drawer.mode === 'notes'} title=${state.drawer.rowId} mode="notes" onClose=${() => dispatch({ type:'CLOSE_DRAWER' })}>
+            ${(() => {
+              const c = CONTRACTS.find(x => x.id === state.drawer.rowId);
+              if (!c) return null;
+              return html`
+                <div class="contract-notes">
+                  <div style=${{ marginBottom:'10px' }}>
+                    <div class="kpi-label">Contract</div>
+                    <div>${c.title}</div>
+                    <div class="mono" style=${{ fontSize:'11px', color:'var(--text-faint)' }}>${c.id} · ${formatPHP(c.value)} · ends ${c.end}</div>
+                  </div>
+                  ${c.notes.length === 0
+                    ? html`<div style=${{ color:'var(--text-faint)' }}>No notes yet.</div>`
+                    : c.notes.map(n => html`
+                        <div class="note" key=${n.at}>
+                          <div class="meta"><b>${n.by}</b> · ${n.at.replace('T',' ')}</div>
+                          <div class="body">${n.body}</div>
+                        </div>
+                      `)
+                  }
+                </div>
+              `;
+            })()}
+          <//>
+        </div>
+      `;
+    };
+    const Rfp = ({ state, dispatch }) => {
+      const [form, setForm] = useState({
+        title: '',
+        payableTo: '',
+        currency: 'PHP',
+        amount: '',
+        expenseType: 'IT Opex',
+        project: '',
+        businessOwner: '',
+        justifications: '',
+      });
+
+      const onSubmit = (e) => {
+        e.preventDefault();
+        const id = 'RFP-2026-' + String(900 + Object.keys(state.rfpOverrides).length).padStart(4,'0');
+        const amount = parseFloat(form.amount) || 0;
+        const newRfp = {
+          id, title: form.title || '(untitled)',
+          payableTo: form.payableTo || 'TBD vendor',
+          currency: form.currency,
+          amount,
+          amountPHP: amount,
+          exchangeRate: form.currency === 'PHP' ? null : 56.12,
+          expenseType: form.expenseType,
+          expenseDetail: { project: form.project || '-', businessOwner: form.businessOwner || '-', amount },
+          justifications: form.justifications,
+          requester: 'D. Cruz',
+          requestedAt: '2026-06-13',
+          currentStage: 'ITFA',
+          stageHistory: [],
+          soaNumber: 'SOA-2026-' + String(44200 + Object.keys(state.rfpOverrides).length).padStart(5,'0'),
+          attachments: [],
+        };
+        dispatch({ type: 'INSERT_RFP', rfp: newRfp });
+      };
+
+      return html`
+        <div style=${{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:'1px', background:'var(--rule)' }}>
+          <section class="bb-panel">
+            <div class="head"><h4>New Request for Payment</h4><div class="meta">Requester · D. Cruz</div></div>
+            <form data-tour="rfp-form" onSubmit=${onSubmit}>
+              <div class="form-grid">
+                <label>Title</label>      <input name="title"      value=${form.title}      onInput=${e => setForm(f => ({...f, title: e.target.value}))} />
+                <label>Payable To</label> <input name="payableTo"  value=${form.payableTo}  onInput=${e => setForm(f => ({...f, payableTo: e.target.value}))} />
+                <label>Currency</label>
+                <select value=${form.currency} onChange=${e => setForm(f => ({...f, currency: e.target.value}))}>
+                  <option>PHP</option><option>USD</option><option>SGD</option><option>EUR</option>
+                </select>
+                <label>Amount</label>     <input name="amount" type="number" step="0.01" value=${form.amount} onInput=${e => setForm(f => ({...f, amount: e.target.value}))} />
+                <label>Expense Type</label>
+                <select value=${form.expenseType} onChange=${e => setForm(f => ({...f, expenseType: e.target.value}))}>
+                  <option>IT Capex</option><option>IT Opex</option><option>Other</option>
+                </select>
+                <label>Project</label>          <input value=${form.project}        onInput=${e => setForm(f => ({...f, project: e.target.value}))} />
+                <label>Business Owner</label>   <input value=${form.businessOwner}  onInput=${e => setForm(f => ({...f, businessOwner: e.target.value}))} />
+                <label>Justifications</label>   <textarea value=${form.justifications} onInput=${e => setForm(f => ({...f, justifications: e.target.value}))}></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="button" onClick=${() => setForm({ title:'', payableTo:'', currency:'PHP', amount:'', expenseType:'IT Opex', project:'', businessOwner:'', justifications:'' })}>Reset</button>
+                <button type="submit" class="primary" data-tour="rfp-submit">Submit RFP</button>
+              </div>
+            </form>
+          </section>
+          <section class="bb-panel">
+            <div class="head"><h4>What happens next</h4><div class="meta">workflow preview</div></div>
+            <p style=${{ color:'var(--text-mute)', fontSize:'13px' }}>On submit, your request enters the 8-stage approval chain starting at ITFA. You'll see status updates in <b>RFP Tracker</b> as approvers review.</p>
+            <${ApprovalChain} rfp=${{ currentStage:'ITFA', stageHistory: [] }} />
+          </section>
+        </div>
+      `;
+    };
+    const TERMINAL_STAGES = ['FOR_PAYMENT','PAID','REJECTED'];
+
+    const RfpTracker = ({ state, dispatch }) => {
+      const rfps = useMemo(() => allRfps(state.rfpOverrides), [state.rfpOverrides]);
+
+      const stageCounts = useMemo(() => {
+        const c = {};
+        [...STAGE_ORDER, ...TERMINAL_STAGES].forEach(s => c[s] = 0);
+        rfps.forEach(r => { c[r.currentStage] = (c[r.currentStage] || 0) + 1; });
+        return c;
+      }, [rfps]);
+
+      const filtered = state.trackerStage
+        ? rfps.filter(r => r.currentStage === state.trackerStage)
+        : rfps;
+
+      const onStageClick = (stage) => {
+        dispatch({ type: 'SET_TRACKER_STAGE', stage: state.trackerStage === stage ? null : stage });
+      };
+
+      const summaryRfp = { currentStage: state.trackerStage || 'ITFA', stageHistory: [] };
+
+      const cols = [
+        { key:'id',        label:'ID',           mono:true },
+        { key:'title',     label:'Title' },
+        { key:'requester', label:'Requester' },
+        { key:'amountPHP', label:'Amount',       align:'right', mono:true, render: (r) => formatPHP(r.amountPHP) },
+        { key:'currentStage', label:'Stage',     render: (r) => html`<span class="mono" style=${{fontSize:'11px'}}>${r.currentStage}</span>` },
+        { key:'requestedAt',label:'Requested',   align:'right', mono:true },
+      ];
+
+      const selected = state.selectedRow?.module === 'RfpTracker'
+        ? rfps.find(r => r.id === state.selectedRow.id)
+        : null;
+
+      return html`
+        <div>
+          <section class="bb-panel">
+            <div class="head"><h4>Approval Chain - counts by stage</h4><div class="meta">${rfps.length} total RFPs</div></div>
+            <div class="chain" data-tour="approval-chain">
+              ${STAGE_ORDER.map(stage => {
+                const isSel = state.trackerStage === stage;
+                return html`
+                  <div key=${stage} class=${'step' + (isSel ? ' cur' : '')} data-tour=${'chain-stage-' + stage}
+                       style=${{ cursor:'pointer' }}
+                       onClick=${() => onStageClick(stage)}>
+                    <div class="lbl">${STAGE_LABELS[stage]}</div>
+                    <div class="ck mono" style=${{ fontSize:'14px', color:'var(--text-strong)' }}>${stageCounts[stage] || 0}</div>
+                    <div class="who">${(APPROVERS[stage] || '').split(' ').map(p => p[0]).join('')}</div>
+                  </div>
+                `;
+              })}
+            </div>
+            <div style=${{ display:'flex', gap:'24px', marginTop:'12px', fontSize:'11.5px', color:'var(--text-mute)' }} class="mono">
+              <span>FOR_PAYMENT <b style=${{color:'var(--text-strong)'}}>${stageCounts.FOR_PAYMENT}</b></span>
+              <span>PAID <b style=${{color:'var(--ok)'}}>${stageCounts.PAID}</b></span>
+              <span>REJECTED <b style=${{color:'var(--bad)'}}>${stageCounts.REJECTED}</b></span>
+            </div>
+          </section>
+
+          <section class="bb-panel">
+            <div class="head">
+              <h4>Queue</h4>
+              <div class="meta">
+                ${state.trackerStage ? html`filter: <b style=${{color:'var(--brand)'}}>${state.trackerStage}</b> · <span style=${{cursor:'pointer'}} onClick=${() => dispatch({type:'SET_TRACKER_STAGE', stage:null})}>clear</span>` : html`${filtered.length} rows`}
+              </div>
+            </div>
+            <${DataTable} columns=${cols} rows=${filtered} onRowClick=${(r) => dispatch({ type:'SELECT_ROW', module:'RfpTracker', id:r.id })} selectedId=${state.selectedRow?.module === 'RfpTracker' ? state.selectedRow.id : null} />
+          </section>
+
+          ${selected ? html`
+            <div class="tracker-actions" data-tour="approve-reject">
+              <div class="meta"><b>${selected.id}</b> · ${selected.title} · ${formatPHP(selected.amountPHP)} · stage ${selected.currentStage}</div>
+              ${TERMINAL_STAGES.includes(selected.currentStage)
+                ? html`<span class="mono" style=${{ color:'var(--text-mute)' }}>terminal - no actions</span>`
+                : html`
+                    <button onClick=${() => dispatch({ type:'REJECT_RFP', rfpId: selected.id, at: '2026-06-13', remarks: 'Rejected via demo.' })}>Reject</button>
+                    <button class="primary" onClick=${() => dispatch({ type:'ADVANCE_RFP', rfpId: selected.id, at: '2026-06-13' })}>Approve →</button>
+                  `}
+            </div>
+          ` : null}
+        </div>
+      `;
+    };
+    const PAYMENT_STATUS_PILL = {
+      pending_tag: { v:'warn', label:'pending tag' },
+      tagged:      { v:'ok',   label:'tagged' },
+      rejected:    { v:'bad',  label:'rejected' },
+    };
+
+    const PaymentTagging = ({ state, dispatch }) => {
+      const cols = [
+        { key:'id',        label:'Payment ID',    mono:true },
+        { key:'rfpId',     label:'RFP ID',        mono:true },
+        { key:'bankRef',   label:'Bank Ref',      mono:true },
+        { key:'status',    label:'Status', render: (r) => {
+          const s = PAYMENT_STATUS_PILL[r.status];
+          return html`<${Pill} variant=${s.v}>${s.label}<//>`;
+        }},
+        { key:'actualAmountPaid', label:'Amount', align:'right', mono:true, render: (r) => formatPHP(r.actualAmountPaid) },
+        { key:'paidAt',    label:'Paid',          align:'right', mono:true, render: (r) => r.paidAt || '-' },
+      ];
+
+      const tagged = PAYMENTS.filter(p => p.status === 'tagged');
+      const pending = PAYMENTS.filter(p => p.status === 'pending_tag');
+
+      return html`
+        <div>
+          <div class="kpi-strip">
+            <${KpiCard} label="Pending Tag"      value=${pending.length} delta=""             deltaVariant="bad" />
+            <${KpiCard} label="Tagged Today"     value=${tagged.length}  delta="rolling"      deltaVariant="ok" />
+            <${KpiCard} label="Total Disbursed"  value=${formatPHP(tagged.reduce((s,p) => s + p.actualAmountPaid, 0))} delta="YTD" deltaVariant="acc" />
+            <${KpiCard} label="FX Spread"        value="₱ 0.04" delta="USD/PHP" deltaVariant="mute" />
+          </div>
+          <div style=${{ padding:'1px 0' }}>
+            <section class="bb-panel" data-tour="payment-queue">
+              <div class="head"><h4>Payments</h4><div class="meta">${PAYMENTS.length} total</div></div>
+              <${DataTable} columns=${cols} rows=${PAYMENTS} onRowClick=${(r) => {
+                dispatch({ type:'SELECT_ROW', module:'PaymentTagging', id:r.id });
+                dispatch({ type:'OPEN_DRAWER', mode:'tag', rowId:r.id });
+              }} selectedId=${state.selectedRow?.module === 'PaymentTagging' ? state.selectedRow.id : null} />
+            </section>
+          </div>
+
+          <${Drawer} open=${state.drawer.open && state.drawer.mode === 'tag'} title="Tag Payment" mode="tag" onClose=${() => dispatch({ type:'CLOSE_DRAWER' })}>
+            <div data-tour="tag-modal">
+              ${(() => {
+                const p = PAYMENTS.find(x => x.id === state.drawer.rowId);
+                if (!p) return null;
+                return html`
+                  <div class="form-grid">
+                    <label>Payment ID</label>       <input class="mono" value=${p.id} disabled />
+                    <label>RFP ID</label>           <input class="mono" value=${p.rfpId} disabled />
+                    <label>Bank Reference</label>   <input class="mono" value=${p.bankRef} readOnly />
+                    <label>Exchange Rate</label>    <input class="mono" value=${p.exchangeRateUsed} readOnly />
+                    <label>Actual Amount Paid</label><input class="mono" value=${p.actualAmountPaid} readOnly />
+                  </div>
+                  <div class="form-actions">
+                    <button onClick=${() => dispatch({ type:'CLOSE_DRAWER' })}>Cancel</button>
+                    <button class="primary" onClick=${() => dispatch({ type:'CLOSE_DRAWER' })}>Save tag</button>
+                  </div>
+                `;
+              })()}
+            </div>
+          <//>
+        </div>
+      `;
+    };
+    const ROLE_MODULES = ['Vendor Onboarding','Contract Management','RFP','RFP Tracker','Payment Tagging'];
+
+    const Admin = () => {
+      const cls = (v) => v === 'Edit' ? 'edit' : v === 'Read' ? 'read' : 'no';
+      return html`
+        <div style=${{ padding:'1px 0' }}>
+          <section class="bb-panel" data-tour="role-matrix">
+            <div class="head"><h4>Role Assignments</h4><div class="meta">${ROLES.length} users</div></div>
+            <table class="dt">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  ${ROLE_MODULES.map(m => html`<th key=${m}>${m}</th>`)}
+                  <th>Approver?</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ROLES.map(r => html`
+                  <tr key=${r.email}>
+                    <td>${r.name}</td>
+                    <td class="mono muted">${r.email}</td>
+                    ${ROLE_MODULES.map(m => {
+                      const v = r.roles[m];
+                      return html`<td key=${m}>
+                        <select class=${'role-select ' + cls(v)} defaultValue=${v}>
+                          <option>Edit</option><option>Read</option><option>No Access</option>
+                        </select>
+                      </td>`;
+                    })}
+                    <td><${Pill} variant=${r.isApprover ? 'ok' : 'bad'}>${r.isApprover ? 'yes' : 'no'}<//></td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      `;
+    };
+
+    const SCREEN_BY_MODULE = { VendorOnboarding, ContractMgmt, Rfp, RfpTracker, PaymentTagging, Admin };
+
+    const ScreenRouter = ({ state, dispatch }) => {
+      const Comp = SCREEN_BY_MODULE[state.activeModule] || Placeholder;
+      return html`<${Comp} state=${state} dispatch=${dispatch} />`;
+    };
+
+    // ============ TOUR ============
+    const placeTooltip = (rect, placement) => {
+      const PAD = 14;
+      const W = 320;
+      const H = 140; // estimate
+      let top, left;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      switch (placement) {
+        case 'right':  top = rect.top + rect.height/2 - H/2; left = rect.right + PAD; break;
+        case 'left':   top = rect.top + rect.height/2 - H/2; left = rect.left - W - PAD; break;
+        case 'top':    top = rect.top - H - PAD; left = rect.left + rect.width/2 - W/2; break;
+        case 'bottom': top = rect.bottom + PAD; left = rect.left + rect.width/2 - W/2; break;
+        default:       top = rect.top + rect.height/2 - H/2; left = rect.left + rect.width/2 - W/2; break;
+      }
+      // Auto-flip if off-screen
+      if (left < 8) left = 8;
+      if (left + W > vw - 8) left = vw - W - 8;
+      if (top < 56) top = 56; // below chapter strip
+      if (top + H > vh - 8) top = vh - H - 8;
+      return { top, left };
+    };
+
+    const findTargetRect = async (selector, timeoutMs = 800) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const el = document.querySelector(selector);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) return { rect: r, el };
+        }
+        await new Promise(rs => setTimeout(rs, 50));
+      }
+      return null;
+    };
+
+    const TourOverlay = ({ steps, currentStep, dispatch, onAdvance, onPrev, onSkip, onJumpChapter }) => {
+      const step = steps[currentStep];
+      const [rect, setRect] = useState(null);
+
+      useEffect(() => {
+        if (!step) return;
+        if (!step.target) { setRect(null); return; }
+        let cancelled = false;
+        (async () => {
+          const found = await findTargetRect(step.target);
+          if (!cancelled) setRect(found?.rect ?? null);
+        })();
+        return () => { cancelled = true; };
+      }, [currentStep, step]);
+
+      useEffect(() => {
+        if (!step?.target) return;
+        const update = () => {
+          const el = document.querySelector(step.target);
+          if (el) setRect(el.getBoundingClientRect());
+        };
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => {
+          window.removeEventListener('resize', update);
+          window.removeEventListener('scroll', update, true);
+        };
+      }, [step?.target]);
+
+      if (!step) return null;
+
+      const isCenter = !step.target;
+      const chapters = useMemo(() => Array.from(new Set(steps.filter(s => s.chapter && s.chapter > 0).map(s => s.chapter))).sort(), [steps]);
+      const activeChapter = step.chapter;
+
+      return html`
+        <div>
+          <div class="tour-chapter-strip">
+            ${chapters.map(ch => {
+              const firstIdx = steps.findIndex(s => s.chapter === ch);
+              const label = (steps.find(s => s.chapter === ch)?.chapterLabel) || ('Ch ' + ch);
+              return html`
+                <div key=${ch} class=${'ch' + (activeChapter === ch ? ' active' : '')} onClick=${() => onJumpChapter(firstIdx)}>[${ch}] ${label}</div>
+              `;
+            })}
+          </div>
+          <div class="tour-backdrop">
+            <svg>
+              <defs>
+                <mask id="tour-cut">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  ${rect ? html`<rect x=${rect.left - 8} y=${rect.top - 8} width=${rect.width + 16} height=${rect.height + 16} rx="6" ry="6" fill="black" />` : null}
+                </mask>
+              </defs>
+              <rect x="0" y="0" width="100%" height="100%" fill="rgba(8,9,11,0.62)" mask="url(#tour-cut)" />
+            </svg>
+          </div>
+          ${rect ? html`
+            <div class="tour-spotlight-ring" style=${{
+              position:'fixed',
+              top: (rect.top - 8) + 'px',
+              left:(rect.left - 8) + 'px',
+              width:(rect.width + 16) + 'px',
+              height:(rect.height + 16) + 'px',
+              border:'1px solid var(--brand)',
+              borderRadius:'6px',
+              boxShadow:'0 0 0 1px rgba(236,27,46,.3), 0 0 24px rgba(236,27,46,.25)',
+              pointerEvents:'none',
+              zIndex:101,
+            }} />
+          ` : null}
+
+          ${isCenter
+            ? html`
+              <div class="tour-center-card" role="dialog" aria-live="polite">
+                <div class="label">Step ${currentStep + 1} of ${steps.length}</div>
+                <h5>${step.title}</h5>
+                <p dangerouslySetInnerHTML=${{ __html: step.body }}></p>
+                <div class="actions" style=${{ justifyContent:'center' }}>
+                  <button class="skip" onClick=${onSkip} style=${{ marginRight:'10px' }}>Skip walkthrough</button>
+                  ${currentStep > 0 ? html`<button onClick=${onPrev}>← Prev</button>` : null}
+                  <button class="primary" onClick=${onAdvance}>${currentStep < steps.length - 1 ? 'Next →' : 'Finish'}</button>
+                </div>
+              </div>
+            `
+            : rect ? (() => {
+                const pos = placeTooltip(rect, step.placement || 'right');
+                return html`
+                  <div class="tour-tooltip" role="dialog" aria-live="polite" style=${{ top: pos.top + 'px', left: pos.left + 'px' }}>
+                    <div class="label">${step.chapterLabel || ''} · Step ${currentStep + 1} of ${steps.length}</div>
+                    <h5>${step.title}</h5>
+                    <p dangerouslySetInnerHTML=${{ __html: step.body }}></p>
+                    <div class="actions">
+                      <button class="skip" onClick=${onSkip} style=${{ marginRight:'10px' }}>Skip walkthrough</button>
+                      ${currentStep > 0 ? html`<button onClick=${onPrev}>← Prev</button>` : null}
+                      <button class="primary" onClick=${onAdvance}>${currentStep < steps.length - 1 ? 'Next →' : 'Finish'}</button>
+                    </div>
+                  </div>
+                `;
+              })()
+            : null
+          }
+        </div>
+      `;
+    };
+
+    // ============ ROOT ============
+    const KEY_TO_MODULE = { F1:'VendorOnboarding', F2:'ContractMgmt', F3:'Rfp', F4:'RfpTracker', F5:'PaymentTagging', F9:'Admin' };
+
+    const TOUR_STEPS = [
+      { id:'0',   chapter:0, chapterLabel:'',         target:null,
+        title:'',
+        body:'Press <kbd>Esc</kbd> to walk through the sample Vendor Management Solution. <kbd>R</kbd> to replay.',
+        placement:'center' },
+
+      { id:'1.1', chapter:1, chapterLabel:'Vendor',   target:'.bb-side',
+        title:'Five modules + Admin',
+        body:'F1–F9 keys jump directly - the source PowerApps\'s <code>vlist</code> tab index, modernized.',
+        placement:'right',
+        before: ({ dispatch }) => dispatch({ type:'SET_MODULE', module:'VendorOnboarding' }) },
+
+      { id:'1.2', chapter:1, chapterLabel:'Vendor',   target:'.kpi-strip',
+        title:'Tabular KPIs',
+        body:'Each cell shows the week-over-week delta. Hover any cell to see contributing rows.',
+        placement:'bottom' },
+
+      { id:'1.3', chapter:1, chapterLabel:'Vendor',   target:'[data-tour="vendor-register"]',
+        title:'Vendor register',
+        body:'Click any row to open the form drawer - same New/Edit/View/Delete pattern as PowerApps.',
+        placement:'right' },
+
+      { id:'2.1', chapter:2, chapterLabel:'Contract', target:'.bb-nav .item[data-mod="ContractMgmt"]',
+        title:'Module switch',
+        body:'Sidebar item activates with the red signal bar.',
+        placement:'right',
+        before: ({ dispatch }) => dispatch({ type:'SET_MODULE', module:'ContractMgmt' }) },
+
+      { id:'2.2', chapter:2, chapterLabel:'Contract', target:'[data-tour="contract-renewals"]',
+        title:'Renewals at a glance',
+        body:'Contracts within 90 days of expiry, sorted by urgency. Drives renewal workload.',
+        placement:'left' },
+
+      { id:'2.3', chapter:2, chapterLabel:'Contract', target:'[data-tour="contract-notes-drawer"]',
+        title:'Conversational notes',
+        body:'Threaded notes per contract - same thread model as the source app.',
+        placement:'left',
+        before: ({ dispatch }) => {
+          dispatch({ type:'SET_MODULE', module:'ContractMgmt' });
+          dispatch({ type:'SELECT_ROW', module:'ContractMgmt', id:'CID000080' });
+          dispatch({ type:'OPEN_DRAWER', mode:'notes', rowId:'CID000080' });
+        } },
+
+      { id:'3.1', chapter:3, chapterLabel:'RFP',      target:'.bb-nav .item[data-mod="Rfp"]',
+        title:'The request side',
+        body:'This is what a Requester sees when filing a payment request.',
+        placement:'right',
+        before: ({ dispatch }) => { dispatch({ type:'CLOSE_DRAWER' }); dispatch({ type:'SET_MODULE', module:'Rfp' }); } },
+
+      { id:'3.2', chapter:3, chapterLabel:'RFP',      target:'[data-tour="rfp-form"]',
+        title:'Form fields',
+        body:'Amount, currency, payee, IT Capex/Opex flag, justifications. Validations match the PowerApps form rules.',
+        placement:'right' },
+
+      { id:'3.3', chapter:3, chapterLabel:'RFP',      target:'[data-tour="rfp-submit"]',
+        title:'Submit → pipeline',
+        body:'Submitting drops the RFP into stage 1 (ITFA) of the approval pipeline - visualized next.',
+        placement:'top' },
+
+      { id:'4.1', chapter:4, chapterLabel:'Tracker',  target:'[data-tour="approval-chain"]',
+        title:'8-stage approval chain',
+        body:'ITFA → ITFUH → BMH → GH → SH → BPROD → CFO → President. Stages light up in signal red as RFPs progress.',
+        placement:'bottom',
+        before: ({ dispatch }) => dispatch({ type:'SET_MODULE', module:'RfpTracker' }) },
+
+      { id:'4.2', chapter:4, chapterLabel:'Tracker',  target:'[data-tour="chain-stage-ITFA"]',
+        title:'Stage filtering',
+        body:'Click a stage to filter the queue. Approvers only see what\'s in their stage and what\'s blocked.',
+        placement:'bottom',
+        before: ({ dispatch }) => dispatch({ type:'SET_TRACKER_STAGE', stage:'ITFA' }) },
+
+      { id:'4.3', chapter:4, chapterLabel:'Tracker',  target:'[data-tour="approve-reject"]',
+        title:'Approve / Reject',
+        body:'Approve forwards to the next stage. Reject can route to any prior approver - drives the rework loop.',
+        placement:'top',
+        before: ({ dispatch, state }) => {
+          const target = allRfps(state.rfpOverrides).find(r => r.currentStage === 'ITFA');
+          if (target) dispatch({ type:'SELECT_ROW', module:'RfpTracker', id: target.id });
+        } },
+
+      { id:'5.1', chapter:5, chapterLabel:'Payment',  target:'[data-tour="payment-queue"]',
+        title:'Disbursement queue',
+        body:'Once President-approved, RFPs land here for treasury to tag against actual disbursements.',
+        placement:'top',
+        before: ({ dispatch }) => dispatch({ type:'SET_MODULE', module:'PaymentTagging' }) },
+
+      { id:'5.2', chapter:5, chapterLabel:'Payment',  target:'[data-tour="tag-modal"]',
+        title:'Closing the audit loop',
+        body:'Tagging links the payment to bank reference, exchange rate used, and actual amount paid.',
+        placement:'left',
+        before: ({ dispatch }) => {
+          const first = PAYMENTS.find(p => p.status === 'pending_tag');
+          if (first) {
+            dispatch({ type:'SELECT_ROW', module:'PaymentTagging', id: first.id });
+            dispatch({ type:'OPEN_DRAWER', mode:'tag', rowId: first.id });
+          }
+        } },
+
+      { id:'6.1', chapter:6, chapterLabel:'Admin',    target:'.bb-nav .item[data-mod="Admin"]',
+        title:'Role assignment',
+        body:'Determines which modules each user can access (No Access / Read / Edit).',
+        placement:'right',
+        before: ({ dispatch }) => { dispatch({ type:'CLOSE_DRAWER' }); dispatch({ type:'SET_MODULE', module:'Admin' }); } },
+
+      { id:'6.2', chapter:6, chapterLabel:'Admin',    target:'[data-tour="role-matrix"]',
+        title:'Permission matrix',
+        body:'Rows are users, columns are modules - same data shape as the RoleAccess SharePoint list.',
+        placement:'top' },
+
+      { id:'7',   chapter:0, chapterLabel:'Closing',  target:null,
+        title:'End of walkthrough',
+        body:'Press <kbd>Esc</kbd> to free-click, or <kbd>R</kbd> to replay.',
+        placement:'center' },
+    ];
+
+    const App = () => {
+      const [state, dispatch] = useReducer(appReducer, initialAppState);
+      const urlTour = new URLSearchParams(location.search).get('tour');
+      const autoStart = urlTour !== '0';
+      const [tourActive, setTourActive] = useState(autoStart);
+      const [currentStep, setCurrentStep] = useState(urlTour && urlTour !== '0' ? Number(urlTour) || 0 : 0);
+      const [lastStep, setLastStep] = useState(null);
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (KEY_TO_MODULE[e.key]) {
+            e.preventDefault();
+            dispatch({ type: 'SET_MODULE', module: KEY_TO_MODULE[e.key] });
+            return;
+          }
+          if (!tourActive) {
+            if (e.key === 'r' || e.key === 'R') { setCurrentStep(0); setTourActive(true); }
+            return;
+          }
+          if (e.key === 'Escape') { setLastStep(currentStep); setTourActive(false); }
+          else if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); advance(); }
+          else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+          else if (e.key === 'r' || e.key === 'R') { setCurrentStep(0); }
+          else if (e.key >= '1' && e.key <= '6') {
+            const ch = Number(e.key);
+            const idx = TOUR_STEPS.findIndex(s => s.chapter === ch);
+            if (idx >= 0) jumpToStep(idx);
+          }
+        };
+
+        const onJumpEvent = (e) => {
+          const idx = e.detail?.step ?? 0;
+          jumpToStep(idx);
+          if (!tourActive) setTourActive(true);
+        };
+
+        window.addEventListener('keydown', onKey);
+        window.addEventListener('demo-tour-jump', onJumpEvent);
+        return () => {
+          window.removeEventListener('keydown', onKey);
+          window.removeEventListener('demo-tour-jump', onJumpEvent);
+        };
+      }, [tourActive, currentStep, state]);
+
+      const jumpToStep = (idx) => {
+        // Replay all `before` callbacks for steps 0..idx in order
+        for (let i = 0; i <= idx; i++) {
+          const s = TOUR_STEPS[i];
+          if (s.before) s.before({ dispatch, state });
+        }
+        setCurrentStep(idx);
+      };
+
+      const advance = () => {
+        const next = currentStep + 1;
+        if (next >= TOUR_STEPS.length) { setTourActive(false); setLastStep(null); return; }
+        const s = TOUR_STEPS[next];
+        if (s.before) s.before({ dispatch, state });
+        setCurrentStep(next);
+      };
+      const prev = () => {
+        if (currentStep === 0) return;
+        setCurrentStep(currentStep - 1);
+      };
+      const skip = () => { setLastStep(currentStep); setTourActive(false); };
+
+      return html`
+        <div class="bb-shell" data-app-ready="true">
+          <${Sidebar} active=${state.activeModule} onSelect=${(m) => dispatch({ type:'SET_MODULE', module: m })} />
+          <div class="bb-main">
+            <${Topbar} activeModule=${state.activeModule} />
+            <div class="bb-screen">
+              <${ScreenRouter} state=${state} dispatch=${dispatch} />
+            </div>
+            <${CommandBar} />
+          </div>
+          ${tourActive ? html`
+            <${TourOverlay} steps=${TOUR_STEPS} currentStep=${currentStep} dispatch=${dispatch}
+                            onAdvance=${advance} onPrev=${prev} onSkip=${skip} onJumpChapter=${jumpToStep} />
+          ` : null}
+          ${!tourActive && lastStep !== null ? html`
+            <div style=${{ position:'fixed', bottom:'16px', right:'16px', zIndex:50, background:'var(--canvas-deep)', border:'1px solid var(--brand)', borderRadius:'20px', padding:'8px 14px', font:'500 11.5px IBM Plex Mono, monospace', color:'var(--brand)', cursor:'pointer' }}
+                 onClick=${() => { setCurrentStep(lastStep); setTourActive(true); }}>
+              ▶ Resume tour (step ${lastStep + 1} of ${TOUR_STEPS.length})
+            </div>
+          ` : null}
+        </div>
+      `;
+    };
+
+    createRoot(document.getElementById('root')).render(html`<${App} />`);
+  </script>
+</body>
+</html>
